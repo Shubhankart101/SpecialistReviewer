@@ -48,13 +48,17 @@ def build_specialist(config: SpecialistConfig, agent_factory):
     copied_context = copy.deepcopy(config.private_context)
     try:
         sig = inspect.signature(agent_factory)
-        params = list(sig.parameters.values())
-        if params and all(p.kind == inspect.Parameter.KEYWORD_ONLY for p in params):
-            ctx_key = "private_context" if "private_context" in sig.parameters else "context"
-            return agent_factory(role=config.role, goal=config.goal, **{ctx_key: copied_context})
+        params = sig.parameters
+        if params:
+            if all(p.kind == inspect.Parameter.POSITIONAL_ONLY for p in params.values()):
+                return agent_factory(config.role, config.goal, copied_context)
+            if "context" in params:
+                return agent_factory(role=config.role, goal=config.goal, context=copied_context)
+            if "private_context" in params:
+                return agent_factory(role=config.role, goal=config.goal, private_context=copied_context)
     except (ValueError, TypeError):
         pass
-    return agent_factory(config.role, config.goal, copied_context)
+    return agent_factory(role=config.role, goal=config.goal, context=copied_context)
 
 
 def build_review_task(review_input: ReviewInput, specialist, task_factory):

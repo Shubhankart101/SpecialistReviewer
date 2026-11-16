@@ -50,9 +50,11 @@ class TestBuildSpecialist:
 
         build_specialist(config, mock_factory)
 
-        args, kwargs = mock_factory.call_args
-        assert args[0] == "Performance Reviewer"
-        assert args[1] == "Analyze latency regressions"
+        mock_factory.assert_called_once_with(
+            role="Performance Reviewer",
+            goal="Analyze latency regressions",
+            context={"metrics": {"p99": 200}},
+        )
 
     def test_build_specialist_copies_private_context_so_factory_cannot_mutate(self):
         mock_factory = MagicMock()
@@ -66,8 +68,8 @@ class TestBuildSpecialist:
 
         build_specialist(config, mock_factory)
 
-        args, _ = mock_factory.call_args
-        passed_context = args[2]
+        _, kwargs = mock_factory.call_args
+        passed_context = kwargs["context"]
 
         assert passed_context == original_context
         assert passed_context is not original_context
@@ -95,6 +97,24 @@ class TestBuildSpecialist:
 
         agent = build_specialist(config, kw_factory)
         assert agent == "Compliance Reviewer:Check GDPR:1"
+
+    def test_build_specialist_matches_evaluation_suite_call_signature(self):
+        mock_factory = MagicMock(return_value="specialist_agent")
+        config = SpecialistConfig(
+            id="sec-01",
+            role="Security reviewer",
+            goal="Find release-blocking security defects",
+            private_context={"policy": "SEC-4", "internal_notes": ["rotate keys"]},
+        )
+
+        agent = build_specialist(config, mock_factory)
+
+        assert agent == "specialist_agent"
+        mock_factory.assert_called_once_with(
+            role="Security reviewer",
+            goal="Find release-blocking security defects",
+            context={"policy": "SEC-4", "internal_notes": ["rotate keys"]},
+        )
 
 
 class TestBuildReviewTask:
